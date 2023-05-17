@@ -215,7 +215,92 @@ RCT_EXPORT_METHOD(connect:(NSString *)address
     }
 }
 //unpaire(address)
+RCT_EXPORT_METHOD(unpair:(NSString *)address resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+{
+    if (!self.bluetoothManager) {
+        reject(@"BLUETOOTH_UNAVAILABLE", @"Bluetooth is not available", nil);
+        return;
+    }
+    
+    CBPeripheral *peripheral = [self.bluetoothManager retrievePeripheralByAddress:address];
+    
+    if (!peripheral) {
+        reject(@"PERIPHERAL_NOT_FOUND", @"Peripheral not found", nil);
+        return;
+    }
+    
+    if (peripheral.state == CBPeripheralStateConnected) {
+        [self.bluetoothManager disconnectPeripheral:peripheral];
+    }
+    
+    [self.bluetoothManager unpairPeripheral:peripheral completion:^(BOOL success, NSString * _Nullable error) {
+        if (success) {
+            resolve(nil);
+        } else {
+            reject(@"UNPAIR_ERROR", error, nil);
+        }
+    }];
+}
 
+//disconnect
+RCT_EXPORT_METHOD(disconnect:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+{
+    if (!self.bluetoothManager) {
+        reject(@"BLUETOOTH_UNAVAILABLE", @"Bluetooth is not available", nil);
+        return;
+    }
+    
+    if (self.bluetoothManager.printerManager.isConnected) {
+        [self.bluetoothManager.printerManager disconnectWithCompletion:^(BOOL success, NSString * _Nullable error) {
+            if (success) {
+                resolve(nil);
+            } else {
+                reject(@"DISCONNECT_ERROR", error, nil);
+            }
+        }];
+    } else {
+        resolve(nil);
+    }
+}
+
+//isDeviceConnected
+RCT_EXPORT_METHOD(isDeviceConnected:(NSString *)address resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+{
+    if (!self.bluetoothManager) {
+        reject(@"BLUETOOTH_UNAVAILABLE", @"Bluetooth is not available", nil);
+        return;
+    }
+    
+    CBPeripheral *peripheral = [self.bluetoothManager retrievePeripheralByAddress:address];
+    
+    if (!peripheral) {
+        reject(@"PERIPHERAL_NOT_FOUND", @"Peripheral not found", nil);
+        return;
+    }
+    
+    BOOL isConnected = (peripheral.state == CBPeripheralStateConnected);
+    
+    resolve(@(isConnected));
+}
+
+//getConnectedDeviceAddress
+RCT_EXPORT_METHOD(getConnectedDeviceAddress:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject)
+{
+    if (!self.bluetoothManager) {
+        reject(@"BLUETOOTH_UNAVAILABLE", @"Bluetooth is not available", nil);
+        return;
+    }
+    
+    NSArray<CBPeripheral *> *connectedPeripherals = [self.bluetoothManager retrieveConnectedPeripherals];
+    
+    if (connectedPeripherals.count > 0) {
+        CBPeripheral *peripheral = connectedPeripherals[0];
+        NSString *address = peripheral.identifier.UUIDString;
+        resolve(address);
+    } else {
+        resolve(nil);
+    }
+}
 
 -(void)callStop{
     if(self.centralManager.isScanning){
